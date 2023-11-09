@@ -129,7 +129,7 @@ class Serveo extends EventEmitter {
 		const bindAddress = `${subdomain}${this.remotePort}:${this.localHost}:${this.localPort}`;
 		const options = this.generateSSHOptions();
 
-		return ["-t", "-t", "-R", bindAddress, ...options, this.host];
+		return ["-T", "-R", bindAddress, ...options, this.host].filter(Boolean);
 	}
 
 	/**
@@ -137,10 +137,7 @@ class Serveo extends EventEmitter {
 	 */
 	spawnSSH(spawnCallback) {
 		this.spawnArguments = this.generateSSHArguments();
-		this.ssh = spawn("ssh", this.spawnArguments, {
-			shell: true,
-			stdio: ["inherit", "pipe", "pipe"],
-		});
+		this.ssh = spawn("ssh", this.spawnArguments);
 		this.ssh.on("spawn", spawnCallback);
 
 		this.listenForData(this.ssh.stdout, (data) => {
@@ -161,6 +158,7 @@ class Serveo extends EventEmitter {
 
 		this.ssh.on("close", (code) => {
 			if (this.killed) return;
+
 			const result = { restart: code === 255, code, onrestart: () => void 0 };
 			this.emit("close", result);
 			if (result.restart) this.spawnSSH(() => result.onrestart());
@@ -180,7 +178,7 @@ class Serveo extends EventEmitter {
 				save += data;
 				return;
 			}
-			callback((save + data).replace(/\r?\n$/m, ""));
+			callback((save + data).replace(/\r?\n(?:\x1b\[0m)?$/m, ""));
 		});
 	}
 
